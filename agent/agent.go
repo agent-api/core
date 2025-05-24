@@ -19,9 +19,10 @@ import (
 // Agent represents a basic AI agent with its configuration and state
 type Agent struct {
 	// interfaces
-	mem      core.MemoryBackend
-	provider core.Provider
-	vecStore core.VectorStorer
+	mem          core.MemoryBackend
+	provider     core.Provider
+	vecStore     core.VectorStorer
+	systemPrompt string
 
 	tools ToolMap
 
@@ -68,12 +69,13 @@ func NewAgent(opts ...bootstrap.NewAgentConfigFunc) (*Agent, error) {
 	}
 
 	agent := &Agent{
-		provider: conf.Provider,
-		tools:    make(map[string]*core.Tool),
-		vecStore: conf.VecStore,
-		mem:      conf.Memory,
-		maxSteps: conf.MaxSteps,
-		logger:   conf.Logger,
+		provider:     conf.Provider,
+		tools:        make(map[string]*core.Tool),
+		vecStore:     conf.VecStore,
+		mem:          conf.Memory,
+		maxSteps:     conf.MaxSteps,
+		logger:       conf.Logger,
+		systemPrompt: conf.SystemPrompt,
 	}
 
 	// set tools
@@ -142,6 +144,8 @@ func (a *Agent) Run(ctx context.Context, opts ...RunOptionFunc) (*AgentRunAggreg
 
 	var id uint32 = 0
 
+	a.prepareMemory(id)
+
 	agg := NewAgentRunAggregator()
 	m := &core.Message{
 		ID:         id,
@@ -208,6 +212,30 @@ func (a *Agent) Run(ctx context.Context, opts ...RunOptionFunc) (*AgentRunAggreg
 			agg.Push(toolResponses...)
 			a.mem.Add(toolResponses...)
 		}
+	}
+}
+
+func (a *Agent) prepareMemory(id uint32) {
+	messages, err := a.mem.GetMaxN(1)
+	if err != nil {
+		panic(err)
+	}
+	if len(messages) > 0 {
+		return
+	}
+
+	sysM := &core.Message{
+		ID:         id,
+		Role:       core.SystemMessageRole,
+		Content:    a.systemPrompt,
+		Images:     nil,
+		ToolCalls:  nil,
+		ToolResult: nil,
+		Metadata:   nil,
+	}
+	err = a.mem.Add(sysM)
+	if err != nil {
+		panic(err)
 	}
 }
 
