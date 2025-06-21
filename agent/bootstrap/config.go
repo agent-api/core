@@ -28,6 +28,10 @@ type NewAgentConfig struct {
 
 	// The configured memory backend that stores messages across agent runs.
 	Memory core.MemoryBackend
+
+	// Maximum number of messages restored from memory
+	// default 10
+	MaxMemoryWindowContext int
 }
 
 // RunOptionFunc is a function type that modifies RunOptions
@@ -76,5 +80,11 @@ func WithLogger(l *logr.Logger) NewAgentConfigFunc {
 func WithMemory(m core.MemoryBackend) NewAgentConfigFunc {
 	return func(conf *NewAgentConfig) {
 		conf.Memory = m
+	}
+}
+
+func WithMaxMemoryWindowContext(size int) NewAgentConfigFunc {
+	return func(conf *NewAgentConfig) {
+		conf.MaxMemoryWindowContext = size
 	}
 }
